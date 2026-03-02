@@ -1,0 +1,16 @@
+insert into exercises (name, type, muscle_group) values
+  ('Flexiones en tabla',         'reps', 'pecho'),
+  ('Flexiones diamante',         'reps', 'triceps'),
+  ('Flexiones arquero',          'reps', 'pecho'),
+  ('Sentadilla en tabla',        'reps', 'piernas'),
+  ('Zancada en tabla',           'reps', 'piernas'),
+  ('Plancha frontal',            'time', 'core'),
+  ('Plancha lateral',            'time', 'core'),
+  ('Mountain climbers',          'reps', 'core'),
+  ('Remo invertido en tabla',    'reps', 'espalda'),
+  ('Superman en tabla',          'reps', 'espalda'),
+  ('Dips en tabla',              'reps', 'triceps'),
+  ('Curl de biceps en tabla',    'reps', 'biceps'),
+  ('Pike push-up en tabla',      'reps', 'hombros'),
+  ('Burpee en tabla',            'reps', 'full_body'),
+  ('Extensión de cadera',        'reps', 'gluteos');
