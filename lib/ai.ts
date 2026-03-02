@@ -1,8 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-const MODEL = 'claude-sonnet-4-6'
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
 export interface GeneratedRoutineDay {
   day_of_week: number
@@ -39,7 +38,7 @@ Genera una rutina de 3 días (lunes=1, miércoles=3, viernes=5) para la semana 1
 Usa SOLO ejercicios de esta lista: Flexiones en tabla, Flexiones diamante, Sentadilla en tabla,
 Plancha frontal, Mountain climbers, Remo invertido en tabla, Superman en tabla, Pike push-up en tabla.
 
-Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
+Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones adicionales:
 {
   "routine": [
     {
@@ -53,29 +52,15 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
 }
 `
 
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  // Safe content extraction
-  const block = response.content[0]
-  if (!block || block.type !== 'text') {
-    throw new Error('Unexpected Claude response: no text block')
-  }
-  const text = block.text
-  // Strip markdown code blocks if Claude wraps the JSON
+  const result = await model.generateContent(prompt)
+  const text = result.response.text()
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
-  // Safe JSON parse
-  let parsed: GeneratedRoutine
   try {
-    parsed = JSON.parse(cleaned)
+    return JSON.parse(cleaned) as GeneratedRoutine
   } catch {
-    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
+    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 200)}`)
   }
-  return parsed
 }
 
 export async function adjustNextSession(comparison: SessionComparison) {
@@ -88,9 +73,9 @@ ${JSON.stringify(comparison.planned, null, 2)}
 REALIZADO:
 ${JSON.stringify(comparison.actual, null, 2)}
 
-Ajusta la PRÓXIMA sesión basándote en el rendimiento. Si no completó los ejercicios, reduce ligeramente. Si superó el plan, aumenta moderadamente.
+Ajusta la PRÓXIMA sesión. Si no completó los ejercicios, reduce ligeramente. Si superó el plan, aumenta moderadamente.
 
-Responde ÚNICAMENTE con JSON válido:
+Responde ÚNICAMENTE con JSON válido, sin markdown:
 {
   "adjustments": [
     {
@@ -105,26 +90,13 @@ Responde ÚNICAMENTE con JSON válido:
 }
 `
 
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  // Safe content extraction
-  const block = response.content[0]
-  if (!block || block.type !== 'text') {
-    throw new Error('Unexpected Claude response: no text block')
-  }
-  const text = block.text
+  const result = await model.generateContent(prompt)
+  const text = result.response.text()
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
-  // Safe JSON parse
-  let parsed: unknown
   try {
-    parsed = JSON.parse(cleaned)
+    return JSON.parse(cleaned)
   } catch {
-    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
+    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 200)}`)
   }
-  return parsed
 }

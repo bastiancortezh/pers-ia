@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase, USER_ID } from '@/lib/supabase'
-import { generateInitialRoutine } from '@/lib/claude'
+import { generateInitialRoutine } from '@/lib/ai'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()

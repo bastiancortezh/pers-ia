@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { adjustNextSession } from '@/lib/claude'
+import { adjustNextSession } from '@/lib/ai'
 
 interface LogEntry {
   routine_exercise_id: string
