@@ -59,10 +59,23 @@ Responde ÚNICAMENTE con JSON válido con esta estructura exacta:
     messages: [{ role: 'user', content: prompt }],
   })
 
-  const text = (response.content[0] as { text: string }).text
+  // Safe content extraction
+  const block = response.content[0]
+  if (!block || block.type !== 'text') {
+    throw new Error('Unexpected Claude response: no text block')
+  }
+  const text = block.text
   // Strip markdown code blocks if Claude wraps the JSON
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
-  return JSON.parse(cleaned) as GeneratedRoutine
+
+  // Safe JSON parse
+  let parsed: GeneratedRoutine
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
+  }
+  return parsed
 }
 
 export async function adjustNextSession(comparison: SessionComparison) {
@@ -98,7 +111,20 @@ Responde ÚNICAMENTE con JSON válido:
     messages: [{ role: 'user', content: prompt }],
   })
 
-  const text = (response.content[0] as { text: string }).text
+  // Safe content extraction
+  const block = response.content[0]
+  if (!block || block.type !== 'text') {
+    throw new Error('Unexpected Claude response: no text block')
+  }
+  const text = block.text
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
-  return JSON.parse(cleaned)
+
+  // Safe JSON parse
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
+  }
+  return parsed
 }

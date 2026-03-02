@@ -3,7 +3,15 @@ import { supabase, USER_ID } from '@/lib/supabase'
 import { generateInitialRoutine } from '@/lib/claude'
 
 export async function POST(req: NextRequest) {
-  const { weight_kg, height_cm } = await req.json()
+  const body = await req.json()
+  const { weight_kg, height_cm } = body
+
+  if (typeof weight_kg !== 'number' || typeof height_cm !== 'number') {
+    return NextResponse.json(
+      { error: 'weight_kg and height_cm must be numbers' },
+      { status: 400 }
+    )
+  }
 
   // 1. Save profile (upsert — safe to call multiple times)
   const { error: profileError } = await supabase
@@ -51,6 +59,15 @@ export async function POST(req: NextRequest) {
       }))
       .filter((ex) => ex.exercise_id != null)
   )
+
+  const droppedNames = generated.routine.flatMap((day) =>
+    day.exercises
+      .filter((ex) => !exerciseMap[ex.exercise_name])
+      .map((ex) => ex.exercise_name)
+  )
+  if (droppedNames.length > 0) {
+    console.warn('Onboarding: Claude used unknown exercise names:', droppedNames)
+  }
 
   const { error: routineExError } = await supabase
     .from('routine_exercises')

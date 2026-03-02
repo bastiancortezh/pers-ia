@@ -10,7 +10,7 @@ describe('generateInitialRoutine', () => {
       default: class {
         messages = {
           create: vi.fn().mockResolvedValue({
-            content: [{ text: JSON.stringify({
+            content: [{ type: 'text', text: JSON.stringify({
               routine: [
                 {
                   day_of_week: 1,
@@ -40,7 +40,7 @@ describe('adjustNextSession', () => {
       default: class {
         messages = {
           create: vi.fn().mockResolvedValue({
-            content: [{ text: JSON.stringify({
+            content: [{ type: 'text', text: JSON.stringify({
               adjustments: [{ exercise_name: 'Flexiones en tabla', sets: 2, reps: 4, duration_sec: null, reason: 'Reducido por bajo rendimiento' }],
               advice: 'Buen trabajo, mantené el ritmo'
             }) }]
