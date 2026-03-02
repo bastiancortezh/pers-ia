@@ -33,7 +33,7 @@ export default function CompletionBarChart({ data }: Props) {
       indexBy="date"
       margin={{ top: 10, right: 10, bottom: 50, left: 45 }}
       padding={0.3}
-      maxValue={100}
+      valueScale={{ type: 'linear', max: 100 }}
       colors={['hsl(var(--primary))']}
       borderRadius={4}
       axisBottom={{
