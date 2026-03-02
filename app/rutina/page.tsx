@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { supabase } from '@/lib/supabase'
 import ExerciseCard from './ExerciseCard'
 import { Button } from '@/components/ui/button'

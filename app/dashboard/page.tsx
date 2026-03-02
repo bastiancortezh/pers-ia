@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { supabase, USER_ID } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
