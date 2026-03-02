@@ -7,8 +7,7 @@ import MuscleRadarChart from './MuscleRadarChart'
 import { supabase } from '@/lib/supabase'
 
 async function getStats() {
-  // Fetch stats directly from Supabase instead of going through the API route
-  // to avoid the absolute URL problem in server components
+  // Fetch logs joined with routine exercise + exercise info
   const { data: logs } = await supabase
     .from('workout_logs')
     .select(`
@@ -16,27 +15,46 @@ async function getStats() {
       sets_done,
       reps_done,
       routine_exercise:routine_exercises(
+        id,
+        routine_id,
+        day_of_week,
         exercise:exercises(muscle_group)
       )
     `)
     .order('logged_date', { ascending: true })
     .limit(300)
 
+  // Get planned exercise counts per (routine_id, day_of_week)
+  const { data: plannedCounts } = await supabase
+    .from('routine_exercises')
+    .select('routine_id, day_of_week')
+
+  // Build a map: "routineId-dayOfWeek" → count
+  const plannedMap: Record<string, number> = {}
+  for (const row of plannedCounts ?? []) {
+    const key = `${row.routine_id}-${row.day_of_week}`
+    plannedMap[key] = (plannedMap[key] ?? 0) + 1
+  }
+
   const volumeByWeek: Record<string, number> = {}
   const completionByDate: Record<string, { done: number; total: number }> = {}
   const muscleVolume: Record<string, number> = {}
 
   for (const log of logs ?? []) {
+    const routineExercise = log.routine_exercise as any
     const volume = log.sets_done * (log.reps_done ?? 1)
     const week = getWeekLabel(log.logged_date)
     volumeByWeek[week] = (volumeByWeek[week] ?? 0) + volume
 
+    // Completion: use planned count from the routine for that day
     if (!completionByDate[log.logged_date]) {
-      completionByDate[log.logged_date] = { done: 0, total: 0 }
+      const key = `${routineExercise?.routine_id}-${routineExercise?.day_of_week}`
+      const total = plannedMap[key] ?? 0
+      completionByDate[log.logged_date] = { done: 0, total }
     }
     completionByDate[log.logged_date].done += 1
 
-    const muscle = (log.routine_exercise as any)?.exercise?.muscle_group ?? 'otro'
+    const muscle = routineExercise?.exercise?.muscle_group ?? 'otro'
     muscleVolume[muscle] = (muscleVolume[muscle] ?? 0) + volume
   }
 

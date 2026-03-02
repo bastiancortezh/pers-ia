@@ -26,6 +26,9 @@ export async function GET() {
       reps_done,
       duration_done,
       routine_exercise:routine_exercises(
+        id,
+        routine_id,
+        day_of_week,
         sets,
         reps,
         duration_sec,
@@ -35,6 +38,18 @@ export async function GET() {
     .order('logged_date', { ascending: true })
     .limit(300)
 
+  // Get planned exercise counts per (routine_id, day_of_week)
+  const { data: plannedCounts } = await supabase
+    .from('routine_exercises')
+    .select('routine_id, day_of_week')
+
+  // Build a map: "routineId-dayOfWeek" → count
+  const plannedMap: Record<string, number> = {}
+  for (const row of plannedCounts ?? []) {
+    const key = `${row.routine_id}-${row.day_of_week}`
+    plannedMap[key] = (plannedMap[key] ?? 0) + 1
+  }
+
   const result: StatsResult = {
     volumeByWeek: {},
     completionByDate: {},
@@ -42,19 +57,22 @@ export async function GET() {
   }
 
   for (const log of logs ?? []) {
+    const routineExercise = (log.routine_exercise as any)
     // Volume = sets_done × reps_done (or 1 for time-based, since we track sets × duration elsewhere)
     const volume = log.sets_done * (log.reps_done ?? 1)
     const week = getWeekLabel(log.logged_date)
     result.volumeByWeek[week] = (result.volumeByWeek[week] ?? 0) + volume
 
-    // Completion: count how many logs exist per date
+    // Completion: use planned count from the routine for that day
     if (!result.completionByDate[log.logged_date]) {
-      result.completionByDate[log.logged_date] = { done: 0, total: 0 }
+      const key = `${routineExercise?.routine_id}-${routineExercise?.day_of_week}`
+      const total = plannedMap[key] ?? 0
+      result.completionByDate[log.logged_date] = { done: 0, total }
     }
     result.completionByDate[log.logged_date].done += 1
 
     // Muscle volume
-    const muscle = (log.routine_exercise as any)?.exercise?.muscle_group ?? 'otro'
+    const muscle = routineExercise?.exercise?.muscle_group ?? 'otro'
     result.muscleVolume[muscle] = (result.muscleVolume[muscle] ?? 0) + volume
   }
 
