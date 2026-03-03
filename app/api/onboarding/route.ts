@@ -15,14 +15,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 1. Save profile (upsert — safe to call multiple times)
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .upsert({ id: USER_ID, weight_kg, height_cm })
-
-  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 })
-
-  // 2. Get exercise catalog
+  // 1. Get exercise catalog (before any DB writes)
   const { data: exercises, error: exCatalogError } = await supabase
     .from('exercises')
     .select('*')
@@ -31,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No exercises found in catalog' }, { status: 500 })
   }
 
-  // 3. Generate routine via Gemini
+  // 2. Generate routine via Gemini FIRST — if this fails, DB stays clean
   let generated
   try {
     generated = await generateInitialRoutine({ weight_kg, height_cm })
@@ -40,6 +33,13 @@ export async function POST(req: NextRequest) {
     console.error('Gemini error:', msg)
     return NextResponse.json({ error: `AI error: ${msg}` }, { status: 500 })
   }
+
+  // 3. Save profile (only after AI succeeds)
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({ id: USER_ID, weight_kg, height_cm })
+
+  if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 })
 
   // 4. Save routine
   const { data: routine, error: routineError } = await supabase
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       .map((ex) => ex.exercise_name)
   )
   if (droppedNames.length > 0) {
-    console.warn('Onboarding: Claude used unknown exercise names:', droppedNames)
+    console.warn('Onboarding: Gemini used unknown exercise names:', droppedNames)
   }
 
   const { error: routineExError } = await supabase

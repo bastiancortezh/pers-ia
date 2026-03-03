@@ -55,6 +55,12 @@ export default async function DashboardPage() {
 
   if (!profile) redirect('/onboarding')
 
+  // Guard: profile exists but no routine means onboarding AI call failed — restart
+  const { count } = await supabase
+    .from('routines')
+    .select('id', { count: 'exact', head: true })
+  if (!count) redirect('/onboarding')
+
   const data = await getTodayData()
 
   const days = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
