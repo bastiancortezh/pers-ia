@@ -1,23 +1,6 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-
-async function generateWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await fn()
-    } catch (err) {
-      const is429 = err instanceof Error && err.message.includes('429')
-      if (is429 && i < retries - 1) {
-        await new Promise((r) => setTimeout(r, (i + 1) * 5000))
-        continue
-      }
-      throw err
-    }
-  }
-  throw new Error('Max retries reached')
-}
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export interface GeneratedRoutineDay {
   day_of_week: number
@@ -43,8 +26,13 @@ export async function generateInitialRoutine(profile: {
   weight_kg: number
   height_cm: number
 }): Promise<GeneratedRoutine> {
-  const prompt = `
-Eres un entrenador personal experto en tabla persa. El usuario nunca ha hecho ejercicio antes.
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'user',
+        content: `Eres un entrenador personal experto en tabla persa. El usuario nunca ha hecho ejercicio antes.
 
 Perfil:
 - Peso: ${profile.weight_kg} kg
@@ -65,23 +53,31 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones adicional
     }
   ],
   "ai_notes": "Breve explicación de la rutina (1-2 oraciones)"
-}
-`
+}`,
+      },
+    ],
+  })
 
-  const result = await generateWithRetry(() => model.generateContent(prompt))
-  const text = result.response.text()
-  const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
+  const content = message.content[0]
+  if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
+
+  const cleaned = content.text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
   try {
     return JSON.parse(cleaned) as GeneratedRoutine
   } catch {
-    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 200)}`)
+    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
   }
 }
 
 export async function adjustNextSession(comparison: SessionComparison) {
-  const prompt = `
-Eres un entrenador personal. Analiza lo que el usuario planificó vs lo que hizo hoy.
+  const message = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    messages: [
+      {
+        role: 'user',
+        content: `Eres un entrenador personal. Analiza lo que el usuario planificó vs lo que hizo hoy.
 
 PLANIFICADO:
 ${JSON.stringify(comparison.planned, null, 2)}
@@ -103,16 +99,19 @@ Responde ÚNICAMENTE con JSON válido, sin markdown:
     }
   ],
   "advice": "Consejo motivador personalizado de 1-2 oraciones"
-}
-`
+}`,
+      },
+    ],
+  })
 
-  const result = await generateWithRetry(() => model.generateContent(prompt))
-  const text = result.response.text()
-  const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
+  const content = message.content[0]
+  if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
+
+  const cleaned = content.text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
   try {
     return JSON.parse(cleaned)
   } catch {
-    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 200)}`)
+    throw new Error(`Claude returned invalid JSON: ${cleaned.slice(0, 200)}`)
   }
 }
