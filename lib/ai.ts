@@ -3,6 +3,22 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '')
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
+async function generateWithRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const is429 = err instanceof Error && err.message.includes('429')
+      if (is429 && i < retries - 1) {
+        await new Promise((r) => setTimeout(r, (i + 1) * 5000))
+        continue
+      }
+      throw err
+    }
+  }
+  throw new Error('Max retries reached')
+}
+
 export interface GeneratedRoutineDay {
   day_of_week: number
   exercises: {
@@ -52,7 +68,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones adicional
 }
 `
 
-  const result = await model.generateContent(prompt)
+  const result = await generateWithRetry(() => model.generateContent(prompt))
   const text = result.response.text()
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
@@ -90,7 +106,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown:
 }
 `
 
-  const result = await model.generateContent(prompt)
+  const result = await generateWithRetry(() => model.generateContent(prompt))
   const text = result.response.text()
   const cleaned = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
 
