@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase, USER_ID } from '@/lib/supabase'
 import { generateInitialRoutine } from '@/lib/ai'
 
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const { weight_kg, height_cm } = body
@@ -29,8 +31,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No exercises found in catalog' }, { status: 500 })
   }
 
-  // 3. Generate routine via Claude
-  const generated = await generateInitialRoutine({ weight_kg, height_cm })
+  // 3. Generate routine via Gemini
+  let generated
+  try {
+    generated = await generateInitialRoutine({ weight_kg, height_cm })
+  } catch (aiError) {
+    const msg = aiError instanceof Error ? aiError.message : String(aiError)
+    console.error('Gemini error:', msg)
+    return NextResponse.json({ error: `AI error: ${msg}` }, { status: 500 })
+  }
 
   // 4. Save routine
   const { data: routine, error: routineError } = await supabase
